@@ -26,12 +26,20 @@ python3 -m http.server 8000
 # 브라우저에서 http://localhost:8000
 ```
 
-## 2. GitHub Pages 에 올리기
+## 2. GitHub Pages (이미 배포됨)
 
-1. GitHub(`@HAMTOLE`)에서 새 저장소 **`sejul-diary`** 를 Public 으로 만듭니다.
-2. 이 폴더의 파일을 모두 업로드합니다. (Add file → Upload files → 폴더째 끌어다 놓기)
-3. 저장소 **Settings → Pages → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**
-4. 1~2분 뒤 `https://hamtole.github.io/sejul-diary/` 로 열립니다.
+- 주소: **https://hamtole.github.io/sejul-diary/**
+- 저장소: `https://github.com/HAMTOLE/sejul-diary` (Public)
+- 게시 브랜치: **`gh-pages`** (GitHub Pages 설정이 `gh-pages` / `(root)` 로 잡혀 있음)
+  · `main` 은 작업 브랜치입니다. 고칠 때는 `main` 에 커밋한 뒤 **`gh-pages` 로도 밀어 줘야** 사이트가 바뀝니다.
+
+```bash
+git add -A && git commit -m "수정 내용"
+git push origin main
+git push origin main:gh-pages      # 이 줄이 있어야 실제 사이트에 반영
+```
+
+처음부터 다시 올릴 때: 저장소 **Settings → Pages → Source: Deploy from a branch → Branch: `main`(또는 `gh-pages`) / `(root)` → Save** → 1~2분 뒤 열립니다.
 
 ## 3. Cloudflare Worker 업데이트
 
