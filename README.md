@@ -13,10 +13,13 @@ sejul-diary/
   icon-192.png     홈 화면 아이콘 (apple-touch-icon)
   icon-512.png     앱 아이콘
   icon-32.png      파비콘
-  data.json        노션에 연결되기 전 보여 줄 예시 기록 2편
-  assets/photo-hiking.jpg   예시 기록 사진
-  worker-patch.js  Cloudflare Worker 전체 코드 (/diary 추가판)
+  data.json        노션에 연결되기 전 보여 줄 예시 기록 2편 (가상 인물·가상 일상, 사진 없음)
+  worker-patch.js  Cloudflare Worker 전체 코드 (/diary · /study-state 추가판)
 ```
+
+> ⚠️ **이 저장소는 공개(Public)입니다.** 세줄일기 비밀키는 이 저장소 어디에도 넣지 않습니다.
+> 실제 키가 들어간 배포본은 노션 「⚙️ Worker 코드 최신판」 페이지에만 둡니다. 그래서 이 저장소의
+> `worker-patch.js` 는 기본키가 비어 있고, 그대로 배포하면 `/diary` 는 잠긴 채로 열리지 않습니다.
 
 ## 1. 미리 보기 (내 컴퓨터에서)
 
@@ -51,18 +54,32 @@ git push origin main:gh-pages      # 이 줄이 있어야 실제 사이트에 �
    - `NOTION_TOKEN` (기존 그대로, 필수)
    - `BOOK_DB_ID`, `MAILBOX_DB_ID`, `MEAL_DB_ID` (기존 그대로)
    - `DIARY_DB_ID` (선택, 없으면 `4208d929-53b6-8060-bd8a-d05eb1ad6363` 사용)
+   - `DIARY_KEY` (선택 — 넣으면 코드의 기본키보다 우선. 나중에 키를 바꿀 때 씁니다)
 4. 노션에서 「📔 세줄일기」 데이터베이스가 이 연동(Connection)에 공유돼 있어야 합니다.
 
-배포 뒤 확인:
+### 🔐 세줄일기 비밀키 (`/diary` 잠금)
+
+`/diary` (GET·POST)는 요청 헤더 `X-Diary-Key` 가 맞아야만 응답합니다. 없거나 틀리면
+`401 { "error": "diary_auth_required" }` 를 돌려줍니다. 대시보드용 `/book-reviews` · `/mailbox` ·
+`/study-state` · `/book-review` · `/meal-like` 는 예전처럼 키 없이 열려 있습니다.
+
+- 키를 넣는 곳: Worker 코드의 `DIARY_KEY_FALLBACK` 기본값(코드만 덮어써도 바로 동작) 또는
+  Cloudflare Variables 의 `DIARY_KEY`(있으면 이 값이 우선).
+- 앱은 처음 한 번 키를 물어보고, 입력한 키를 브라우저 `localStorage`(`sejul.diaryKey`)에 저장해
+  이후 모든 `/diary` 요청에 헤더로 실어 보냅니다. 설정(⚙️)에서 **비밀키 변경**·**이 기기에서 잠그기**를 할 수 있습니다.
+- CORS preflight 를 위해 `Access-Control-Allow-Headers` 에 `Content-Type, X-Diary-Key` 가 들어 있습니다.
+
+배포 뒤 확인 (키 부분은 실제 비밀키로 바꿔서):
 
 ```
 https://family-notion.mynamebiya.workers.dev/status          → ok:true
-https://family-notion.mynamebiya.workers.dev/diary?meta=1    → 일기 목록(제목·날짜·태그)
-https://family-notion.mynamebiya.workers.dev/diary?month=2026-11 → 그 달 일기 + 세 줄 + 사진
+https://family-notion.mynamebiya.workers.dev/diary?meta=1    → 401 (키 없이)
+curl -s -H "X-Diary-Key: <비밀키>" "https://family-notion.mynamebiya.workers.dev/diary?meta=1"    → 일기 목록
+curl -s -H "X-Diary-Key: <비밀키>" "https://family-notion.mynamebiya.workers.dev/diary?month=2026-11" → 그 달 일기 + 세 줄 + 사진
 ```
 
-`/diary` 가 아직 없거나 잠시 끊겨도 앱은 **이 기기에 저장된 기록 → 예시 기록** 순서로 보여 주고,
-위쪽에 안내 배너를 띄웁니다. 배너의 `다시` 를 누르면 다시 연결을 시도합니다.
+`/diary` 가 잠겨 있거나(비밀키 필요) 잠시 끊겨도 앱은 **비밀키 입력창 → 이 기기에 저장된 기록 → 예시 기록**
+순서로 대응하고, 위쪽에 안내 배너를 띄웁니다. 배너의 `다시` 를 누르면 다시 연결을 시도합니다.
 
 ## 4. 아이폰 홈 화면에 추가
 
@@ -107,7 +124,7 @@ localStorage.setItem('sejul.pin', '1234');   // 켜기
 localStorage.removeItem('sejul.pin');        // 끄기
 ```
 
-※ 이 잠금은 이 기기의 화면만 가리는 장치입니다. 일기 내용 자체는 노션 계정과 Worker 주소로 보호됩니다.
+※ 이 잠금은 이 기기의 화면만 가리는 장치입니다. 일기 내용 자체는 노션 계정과 Worker 비밀키(`X-Diary-Key`)로 보호됩니다.
 
 ## 8. 폰트
 

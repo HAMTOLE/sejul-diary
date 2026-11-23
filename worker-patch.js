@@ -1,11 +1,22 @@
 /* =============================================================================
    family-notion · Cloudflare Worker (전체 교체판)
    -----------------------------------------------------------------------------
-   기존 기능 그대로 + 「📔 세줄일기」(/diary) 추가
-     GET  /diary                → 최근 일기 30편(본문 3줄 + 사진 URL 포함)
-     GET  /diary?month=2026-11  → 그 달 일기 전부
-     GET  /diary?meta=1         → 목록용 가벼운 정보(제목·날짜·태그·요약) 전체
-     POST /diary                → 새 일기 저장 / {id} 를 주면 그 일기 수정
+   기존 기능 그대로 + 「📔 세줄일기」(/diary) + 「🎮 학습·도감 상태」(/study-state) 추가
+     GET  /diary                → 최근 일기 30편(본문 3줄 + 사진 URL 포함)   🔐 키 필요
+     GET  /diary?month=2026-11  → 그 달 일기 전부                              🔐 키 필요
+     GET  /diary?meta=1         → 목록용 가벼운 정보(제목·날짜·태그·요약) 전체    🔐 키 필요
+     POST /diary                → 새 일기 저장 / {id} 를 주면 그 일기 수정       🔐 키 필요
+
+   🔐 세줄일기 비밀키
+     · /diary 는 요청 헤더 `X-Diary-Key` 가 맞아야 응답합니다 (없거나 틀리면 401 diary_auth_required).
+     · 키는 DIARY_KEY_FALLBACK 기본값이나 Cloudflare Variables 의 DIARY_KEY 로 넣습니다.
+       Cloudflare Variables 에 DIARY_KEY 를 넣으면 그 값이 우선입니다.
+     · 대시보드용 /book-reviews · /mailbox · /study-state · /book-review · /meal-like 는 예전 그대로 열려 있습니다.
+     · ⚠️ 이 저장소는 공개(Public)입니다. 실제 비밀키는 이 파일에 넣지 않습니다.
+       실제 키를 넣은 배포본은 노션 「⚙️ Worker 코드 최신판」 페이지에만 둡니다.
+       (DIARY_KEY_FALLBACK 이 비어 있으면 /diary 는 잠긴 채로 열리지 않습니다.)
+     GET  /study-state          → 은호 학습·도감·아빠엄마 상태(JSON) 읽기
+     POST /study-state          → 그 상태 저장(빈 기기가 기존 기록을 덮어쓰지 못하게 막음)
 
    배포 방법
      1) Cloudflare 대시보드 → Workers & Pages → family-notion → 편집(Quick edit)
@@ -14,7 +25,10 @@
           NOTION_TOKEN   (필수, 기존과 동일)
           BOOK_DB_ID, MAILBOX_DB_ID, MEAL_DB_ID (기존 그대로)
           DIARY_DB_ID    (선택 — 없으면 아래 기본값 4208d929-… 사용)
-     4) 노션에서 「📔 세줄일기」 데이터베이스가 이 연동(Connection)에 공유돼 있어야 함.
+          STUDY_PAGE_ID  (선택 — 없으면 아래 기본값 4218d929-… 사용)
+     4) 노션에서 「📔 세줄일기」 데이터베이스와
+        「🎮 은호 포켓몬·학습 상태」 페이지가 이 연동(Connection)에 공유돼 있어야 함
+        (「이것저것 정보들」 페이지를 공유해 두면 그 아래 것도 함께 읽고 쓸 수 있음).
 
    ※ 무료 플랜은 요청 1회당 서브요청 50개 제한 → 목록은 한 번에 최대 40편까지만
      본문을 읽고, 그 이상은 ?month= 또는 커서로 나눠 읽습니다.
@@ -23,11 +37,37 @@
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, X-Diary-Key",
+  "Access-Control-Max-Age": "86400",
 };
 
 const NOTION_VERSION = "2022-06-28";
 const DIARY_DB_FALLBACK = "4208d929-53b6-8060-bd8a-d05eb1ad6363";
+
+/* 🔐 세줄일기(/diary) 비밀키 --------------------------------------------------
+   앱(index.html)은 한 번 입력한 키를 브라우저 localStorage 에 두고
+   /diary 를 부를 때마다 X-Diary-Key 헤더로 보냅니다.
+   · env.DIARY_KEY 가 있으면 그 값, 없으면 아래 기본값을 씁니다.
+   · 키가 비어 있으면 /diary 는 잠긴 채로 둡니다 (fail closed). */
+const DIARY_KEY_FALLBACK = "";
+
+function diaryKeyOf(env) {
+  return String((env && env.DIARY_KEY) || DIARY_KEY_FALLBACK || "").trim();
+}
+
+function diaryAuthorized(request, env) {
+  const expected = diaryKeyOf(env);
+  if (!expected) return false;
+  const got = String(request.headers.get("X-Diary-Key") || "").trim();
+  return got.length > 0 && got === expected;
+}
+
+function diaryUnauthorized() {
+  return jsonResponse({ ok: false, error: "diary_auth_required" }, 401, { "Cache-Control": "no-store" });
+}
+/* 「🎮 은호 포켓몬·학습 상태 (자동 저장 · 지우지 마세요)」 페이지
+   = 「이것저것 정보들」 아래, 대시보드의 학습·도감·아빠엄마 상태 JSON 을 담는 곳 */
+const STUDY_PAGE_FALLBACK = "4218d929-53b6-818e-a302-df74a44e9fed";
 
 /* 노션 「📔 세줄일기」 속성 이름 */
 const DP = {
@@ -456,6 +496,108 @@ async function handleDiaryPost(env, body) {
   return jsonResponse({ ok: true, id: pageId, updated: true, warnings }, 200, { "Cache-Control": "no-store" });
 }
 
+/* ---------- 🎮 학습·도감 상태 (대시보드 여러 기기 동기화) 2026-11-23 ----------
+   은호의 학습·포켓몬·아빠엄마 성장 상태를 노션 페이지 하나의 JSON 코드 블록에 저장한다.
+   · 저장 위치: 「🎮 은호 포켓몬·학습 상태 (자동 저장 · 지우지 마세요)」 페이지의 code 블록
+   · 빈 기기(0/1025)가 기존 기록을 덮어쓰지 않도록 빈 상태는 저장을 거부한다 (skipped:"blank")
+   · 다른 기기가 더 최근에 저장했으면(base 보다 최신) conflict 로 최신 상태를 돌려준다 =
+     기기는 그 상태와 자기 기록을 안전하게 합친 뒤 다시 올린다 */
+
+function studyPageId(env) {
+  return env.STUDY_PAGE_ID || env.STUDY_PAGE || STUDY_PAGE_FALLBACK;
+}
+
+function numOr0(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* 긴 JSON → 노션 rich_text 조각(한 조각 1800자, 최대 99조각 = 약 17만8천자) */
+function richTextChunks(text) {
+  const s = String(text == null ? "" : text);
+  const out = [];
+  for (let i = 0; i < s.length && out.length < 99; i += 1800) {
+    out.push({ type: "text", text: { content: s.slice(i, i + 1800) } });
+  }
+  return out.length ? out : [{ type: "text", text: { content: "" } }];
+}
+
+/* 빈 상태(기기에 아무 기록도 없는 0/1025 상태)인지 */
+function isBlankState(snapshot) {
+  const snap = snapshot && typeof snapshot === "object" ? snapshot : {};
+  const st = snap.study && typeof snap.study === "object" ? snap.study : {};
+  const pa = snap.parents && typeof snap.parents === "object" ? snap.parents : {};
+  if (st.partner) return false;
+  if (numOr0(st.eggXp) > 0) return false;
+  const lines = st.lines && typeof st.lines === "object" ? st.lines : {};
+  for (const k of Object.keys(lines)) {
+    if (numOr0(lines[k] && lines[k].xp) > 0) return false;
+  }
+  if (Array.isArray(st.ranch) && st.ranch.length) return false;
+  const days = st.days && typeof st.days === "object" ? st.days : {};
+  for (const d of Object.keys(days)) {
+    const done = (days[d] && days[d].done) || {};
+    if (Object.keys(done).some((q) => done[q])) return false;
+  }
+  if (st.postponed && Object.keys(st.postponed).length) return false;
+  const seen = snap.dexSeen && typeof snap.dexSeen === "object" ? snap.dexSeen : {};
+  if (Object.keys(seen).length) return false;
+  if (numOr0(pa.xp && pa.xp.dad) > 0 || numOr0(pa.xp && pa.xp.mom) > 0) return false;
+  if (pa.poke && (pa.poke.dad || pa.poke.mom)) return false;
+  const pranch = pa.ranch && typeof pa.ranch === "object" ? pa.ranch : {};
+  if ((Array.isArray(pranch.dad) && pranch.dad.length) || (Array.isArray(pranch.mom) && pranch.mom.length)) return false;
+  const pdays = pa.days && typeof pa.days === "object" ? pa.days : {};
+  for (const d of Object.keys(pdays)) {
+    const rec = pdays[d] || {};
+    for (const who of ["dad", "mom"]) {
+      const m = rec[who] || {};
+      if (Object.keys(m).some((k) => m[k])) return false;
+    }
+  }
+  return true;
+}
+
+/* 페이지의 code 블록 하나를 상태 저장소로 쓴다 */
+async function readStudyState(token, pageId) {
+  const kids = await fetchChildren(token, pageId, 2);
+  const block = kids.find((b) => b && !b.archived && b.type === "code") || null;
+  if (!block) return { block: null, state: null };
+  const text = plainText(block.code && block.code.rich_text);
+  if (!text) return { block, state: null };
+  let state = null;
+  try { state = JSON.parse(text); } catch (err) { state = null; }
+  if (!state || typeof state !== "object" || Array.isArray(state)) return { block, state: null };
+  return { block, state };
+}
+
+async function writeStudyState(token, pageId, state, knownBlock) {
+  const json = JSON.stringify(state);
+  let blockId = knownBlock && knownBlock.id ? knownBlock.id : "";
+  if (!blockId) {
+    const kids = await fetchChildren(token, pageId, 2);
+    const found = kids.find((b) => b && !b.archived && b.type === "code");
+    if (found) blockId = found.id;
+  }
+  if (blockId) {
+    await notionRequest(token, `/blocks/${blockId}`, "PATCH", { code: { rich_text: richTextChunks(json) } });
+    return blockId;
+  }
+  /* 코드 블록이 지워졌으면 새로 하나 만든다 */
+  const made = await notionRequest(token, `/blocks/${pageId}/children`, "PATCH", {
+    children: [{ object: "block", type: "code", code: { language: "json", rich_text: richTextChunks(json) } }],
+  });
+  return (made.results && made.results[0] && made.results[0].id) || "";
+}
+
+function studyPageError(err) {
+  return jsonResponse({
+    ok: false,
+    code: "notion_page",
+    error: err && err.message ? err.message : "노션 페이지를 읽지 못했어요",
+    hint: "노션에서 「🎮 은호 포켓몬·학습 상태」 페이지를 열고 우측 위 ⋯ → 연결 에서 family-notion 을 추가해 주세요",
+  }, 502, { "Cache-Control": "no-store" });
+}
+
 /* =============================== Worker =============================== */
 
 export default {
@@ -488,8 +630,9 @@ export default {
           return jsonResponse({ ok: true, items: pages.map(mailboxItem) }, 200, cache);
         }
 
-        /* 📔 세줄일기 */
+        /* 📔 세줄일기 (비밀키 없으면 401) */
         if (url.pathname === "/diary" || url.pathname === "/diary/") {
+          if (!diaryAuthorized(request, env)) return diaryUnauthorized();
           const db = diaryDbId(env);
           const meta = url.searchParams.get("meta") === "1";
           const monthParam = url.searchParams.get("month") || "";
@@ -529,11 +672,30 @@ export default {
           return jsonResponse({ ok: true, items: items.concat(rest), scope: month || "recent" }, 200, cache);
         }
 
+        /* 🎮 학습·도감 상태 읽기 */
+        if (url.pathname === "/study-state" || url.pathname === "/study-state/") {
+          const pageId = studyPageId(env);
+          let found;
+          try {
+            found = await readStudyState(env.NOTION_TOKEN, pageId);
+          } catch (err) {
+            return studyPageError(err);
+          }
+          const state = found.state;
+          const savedAt = state ? Math.max(0, Math.round(numOr0(state.savedAt))) : 0;
+          return jsonResponse({
+            ok: true,
+            savedAt: savedAt,
+            pageId: pageId,
+            state: savedAt > 0 ? state : null,
+          }, 200, { "Cache-Control": "no-store" });
+        }
+
         if (url.pathname === "/" || url.pathname === "/status") {
           return jsonResponse({
             ok: true,
             name: "family-notion",
-            live: ["/book-reviews", "/mailbox", "/diary", "/diary?month=YYYY-MM", "/diary?meta=1"],
+            live: ["/book-reviews", "/mailbox", "/diary", "/diary?month=YYYY-MM", "/diary?meta=1", "/study-state"],
           });
         }
         return jsonResponse({ ok: false, error: "Unknown route" }, 404);
@@ -643,8 +805,55 @@ export default {
         return jsonResponse({ ok: true, id: page.id, liked: true });
       }
 
-      /* 📔 세줄일기 저장 / 수정 */
+      /* 🎮 학습·도감 상태 저장 */
+      if (url.pathname === "/study-state" || url.pathname === "/study-state/") {
+        const incoming = (body.state && typeof body.state === "object" && !Array.isArray(body.state))
+          ? body.state
+          : ((body.snapshot && typeof body.snapshot === "object" && !Array.isArray(body.snapshot)) ? body.snapshot : null);
+        if (!incoming) {
+          return jsonResponse({ ok: false, error: "state 가 필요해요" }, 400, { "Cache-Control": "no-store" });
+        }
+        const at = Math.max(0, Math.round(numOr0(incoming.savedAt) || numOr0(body.savedAt) || Date.now()));
+        incoming.savedAt = at;
+        if (JSON.stringify(incoming).length > 180000) {
+          return jsonResponse({ ok: false, error: "상태가 너무 커서 저장하지 못했어요" }, 413, { "Cache-Control": "no-store" });
+        }
+
+        const pageId = studyPageId(env);
+        let cur;
+        try {
+          cur = await readStudyState(env.NOTION_TOKEN, pageId);
+        } catch (err) {
+          return studyPageError(err);
+        }
+        const curState = cur.state;
+        const curAt = curState ? Math.max(0, Math.round(numOr0(curState.savedAt))) : 0;
+
+        /* ① 빈 기기(0/1025)는 기존 기록을 덮어쓰지 않는다 — 기록을 그대로 돌려준다 */
+        if (curState && curAt > 0 && isBlankState(incoming) && !isBlankState(curState)) {
+          return jsonResponse({ ok: true, skipped: "blank", savedAt: curAt, state: curState }, 200, { "Cache-Control": "no-store" });
+        }
+
+        /* ② 다른 기기가 더 최근에 저장했으면 받지 않고 최신 상태를 돌려준다 */
+        const base = Math.max(0, Math.round(numOr0(body.base)));
+        if (curAt > 0) {
+          const stale = base > 0 ? curAt > base : curAt > at;
+          if (stale) {
+            return jsonResponse({ ok: true, conflict: true, savedAt: curAt, state: curState }, 200, { "Cache-Control": "no-store" });
+          }
+        }
+
+        try {
+          await writeStudyState(env.NOTION_TOKEN, pageId, incoming, cur.block);
+        } catch (err) {
+          return studyPageError(err);
+        }
+        return jsonResponse({ ok: true, savedAt: at, pageId: pageId, updatedAt: toIsoKst(Date.now()) }, 200, { "Cache-Control": "no-store" });
+      }
+
+      /* 📔 세줄일기 저장 / 수정 (비밀키 없으면 401) */
       if (url.pathname === "/diary" || url.pathname === "/diary/") {
+        if (!diaryAuthorized(request, env)) return diaryUnauthorized();
         return await handleDiaryPost(env, body);
       }
 

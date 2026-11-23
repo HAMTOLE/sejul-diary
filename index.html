@@ -289,6 +289,36 @@
   .wmsg.err{background:#FDEFEF;color:#A4544F}
   .wmsg[hidden]{display:none}
 
+  /* ---------- 비밀키 잠금 ---------- */
+  .keywrap{position:fixed;inset:0;z-index:210;background:rgba(244,245,247,.93);-webkit-backdrop-filter:blur(7px);
+    backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:26px}
+  .keywrap[hidden]{display:none}
+  .keycard{width:100%;max-width:320px;background:#fff;border-radius:20px;padding:26px 20px 18px;text-align:center;
+    box-shadow:0 18px 48px rgba(24,28,36,.15)}
+  .keycard img{width:52px;height:52px;border-radius:15px;margin:0 auto 12px;display:block}
+  .keycard .kt{font-size:16px;font-weight:700;letter-spacing:-.025em;color:var(--ink)}
+  .keycard .ks{font-size:11.5px;color:var(--mute);margin-top:6px;line-height:1.6}
+  .keycard input{width:100%;margin-top:16px;font-size:16px;background:#F6F7F9;border-radius:12px;
+    padding:12px 14px;text-align:center;letter-spacing:.01em;color:var(--ink)}
+  .keycard input::placeholder{color:#C2C7CF}
+  .keycard .kb{width:100%;margin-top:10px;background:var(--ink);color:#fff;font-size:14px;font-weight:600;
+    padding:13px;border-radius:12px}
+  .keycard .kb[disabled]{opacity:.55}
+  .keycard .kerr{font-size:11.5px;color:#C0574F;margin-top:9px;min-height:15px;line-height:1.4}
+  .keycard .knote{font-size:10.5px;color:#B4B9C2;margin-top:4px;line-height:1.6}
+  .keycard .kcancel{display:block;margin:12px auto 0;font-size:11.5px;color:#8A8F99;padding:4px 8px}
+  .keycard .kcancel[hidden]{display:none}
+
+  /* ---------- 설정 ---------- */
+  .setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 2px;width:100%;
+    text-align:left;background:none;border-bottom:1px solid #F1F2F5}
+  .setrow:last-of-type{border-bottom:none}
+  .setrow .sn{font-size:13.5px;color:var(--ink);letter-spacing:-.02em}
+  .setrow .sv{font-size:12px;color:#8A8F99;display:flex;align-items:center;gap:5px;flex:none}
+  .setrow .sv b{font-weight:600;color:#4E5460}
+  .setrow .chev{color:#C2C7CF;font-size:15px;line-height:1}
+  .setnote{font-size:10.5px;color:#B4B9C2;line-height:1.65;margin-top:14px}
+
   /* ---------- 토스트 ---------- */
   #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
     background:rgba(24,26,31,.94);color:#fff;font-size:12.5px;font-weight:500;letter-spacing:-.01em;
@@ -319,6 +349,9 @@
       <h1>세줄일기</h1>
     </div>
     <div class="acts">
+      <button class="ibtn" id="goSettings" aria-label="설정">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h4M14 17h6"/><circle cx="15.4" cy="7" r="2.3"/><circle cx="10" cy="17" r="2.3"/></svg>
+      </button>
       <button class="ibtn" id="goSearch" aria-label="검색">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.6"/><path d="M15.8 15.8L20.6 20.6"/></svg>
       </button>
@@ -416,6 +449,52 @@
   </div>
 </div>
 
+<!-- 설정 -->
+<div class="sheet-wrap" id="sheet-settings" hidden>
+  <div class="backdrop" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="설정">
+    <div class="dhead">
+      <span class="t">설정</span>
+      <div class="r">
+        <button class="round" data-close aria-label="닫기">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="dbody" style="padding-top:6px;padding-bottom:calc(26px + env(safe-area-inset-bottom))">
+      <div class="setrow">
+        <span class="sn">노션 연결</span>
+        <span class="sv" id="setConnVal">확인 중</span>
+      </div>
+      <button class="setrow" id="setKey">
+        <span class="sn">비밀키</span>
+        <span class="sv"><b id="setKeyVal">••••</b><span class="chev">›</span></span>
+      </button>
+      <button class="setrow" id="setLogout">
+        <span class="sn">이 기기에서 잠그기</span>
+        <span class="sv">비밀키 지우기 <span class="chev">›</span></span>
+      </button>
+      <p class="setnote">비밀키는 이 기기 브라우저에만 저장되고, 노션에는 일기 내용만 저장돼요. 잠그면 이 기기에 모아 둔 사본도 지우고, 다시 열 때 비밀키를 물어요.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀키 입력 -->
+<div class="keywrap" id="keygate" hidden>
+  <div class="keycard">
+    <img src="icon-192.png" alt="">
+    <div class="kt" id="keygateTitle">세줄일기 열기</div>
+    <div class="ks" id="keygateSub">비밀키를 입력해 주세요</div>
+    <form id="keyForm" autocomplete="off">
+      <input id="keyInput" type="text" placeholder="sejul-…" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="비밀키">
+      <button class="kb" id="keyGo" type="submit">열기</button>
+    </form>
+    <div class="kerr" id="keyErr"></div>
+    <p class="knote">한 번 입력하면 이 기기에 저장되고, 노션 서버는 키가 맞을 때만 일기를 건네줘요.</p>
+    <button class="kcancel" id="keyCancel" hidden>닫기</button>
+  </div>
+</div>
+
 <div id="toast" role="status"></div>
 
 <div class="lock" id="lock" hidden>
@@ -442,6 +521,17 @@ const DIARY_API = API_BASE + '/diary';
 /* ▲▲ -------------------------------------------------- ▲▲ */
 
 const LS_PIN = 'sejul.pin';
+/* 🔐 Worker(/diary) 비밀키 — 이 기기 브라우저에만 저장합니다.
+   저장소 코드나 주소에는 절대 넣지 않습니다. */
+const LS_DIARY_KEY = 'sejul.diaryKey';
+let DIARY_KEY = (() => { try { return localStorage.getItem(LS_DIARY_KEY) || ''; } catch (_) { return ''; } })();
+function setDiaryKey(v) {
+  DIARY_KEY = String(v == null ? '' : v).trim();
+  try {
+    if (DIARY_KEY) localStorage.setItem(LS_DIARY_KEY, DIARY_KEY);
+    else localStorage.removeItem(LS_DIARY_KEY);
+  } catch (_) {}
+}
 
 /* ---------- 작은 도구들 ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -533,7 +623,8 @@ const S = {
   qTag: null,
   entries: [],       // {id,title,date,lines,tags,photos,summary,url,edited,pending,local}
   meta: [],          // {id,title,date,tags,summary,url,edited}
-  source: 'loading', // loading | notion | cache | demo
+  source: 'loading', // loading | notion | cache | demo | locked
+  locked: false,     // 비밀키가 없거나 틀려 잠긴 상태
   banner: null,      // null | 'offline' | 'nodata'
   err: '',
   loaded: false,
@@ -594,9 +685,18 @@ function mergeEntries(items, { replace = false } = {}) {
 async function jfetch(url, opts = {}, ms = 12000) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
+  const headers = Object.assign({}, opts.headers || {});
+  if (DIARY_KEY) headers['X-Diary-Key'] = DIARY_KEY;
   try {
-    const res = await fetch(url, Object.assign({ cache: 'no-store', signal: c.signal }, opts));
+    const res = await fetch(url, Object.assign({ cache: 'no-store', signal: c.signal }, opts, { headers }));
     const data = await res.json().catch(() => null);
+    if (res.status === 401) {
+      const err = new Error('diary_auth_required');
+      err.status = 401;
+      err.data = data;
+      onDiaryLocked();
+      throw err;
+    }
     if (!res.ok) {
       const err = new Error((data && (data.error || data.message)) || ('HTTP ' + res.status));
       err.status = res.status;
@@ -635,13 +735,25 @@ async function boot() {
   }
   if (Array.isArray(cachedMeta)) S.meta = cachedMeta;
 
-  // 2) 노션에서 새로
-  await refresh({ quiet: !!cached });
-
-  // 3) 아무것도 없으면 예시
-  if (!S.entries.length && !S.meta.length) {
-    await loadDemo();
+  // 2) 비밀키가 없으면 먼저 물어본다
+  if (!DIARY_KEY) {
+    S.locked = true;
+    S.loaded = true;
+    renderAll();
+    openKeyGate('missing');
+    return;
   }
+
+  // 3) 노션에서 새로 → 없으면 예시
+  await loadFromServer();
+}
+
+/* 비밀키가 확인된 뒤: 노션에서 불러오고, 아무것도 없으면 예시 기록 */
+async function loadFromServer() {
+  S.locked = false;
+  await refresh({ quiet: !!S.entries.length });
+  if (S.locked) { S.loaded = true; renderAll(); return; }
+  if (!S.entries.length && !S.meta.length) await loadDemo();
   if (S.entries.length && S.source === 'loading') S.source = 'cache';
   S.loaded = true;
   renderAll();
@@ -657,7 +769,10 @@ async function refresh({ quiet = false } = {}) {
     }));
     metaOK = true;
     await Store.set('meta', S.meta);
-  } catch (e) { S.err = e.message || String(e); }
+  } catch (e) {
+    if (e.status === 401) { onDiaryLocked(); renderAll(); return; }
+    S.err = e.message || String(e);
+  }
 
   try {
     const d = await api.month(S.month);
@@ -665,7 +780,10 @@ async function refresh({ quiet = false } = {}) {
     mergeEntries(items);
     monthOK = true;
     await Store.set('entries', { at: Date.now(), items: stripLocalish(S.entries) });
-  } catch (e) { S.err = e.message || String(e); }
+  } catch (e) {
+    if (e.status === 401) { onDiaryLocked(); renderAll(); return; }
+    S.err = e.message || String(e);
+  }
 
   if (metaOK || monthOK) {
     S.source = 'notion';
@@ -1572,6 +1690,122 @@ function initLock() {
   document.getElementById('pinIn').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
 }
 
+/* ---------- 비밀키 잠금 ---------- */
+let keyGateMode = 'open';
+function keyWrapEl() { return document.getElementById('keygate'); }
+
+function openKeyGate(mode = 'open') {
+  keyGateMode = mode;
+  const wrap = keyWrapEl();
+  if (!wrap) return;
+  const input = document.getElementById('keyInput');
+  document.getElementById('keygateTitle').textContent = mode === 'change' ? '비밀키 바꾸기' : '세줄일기 열기';
+  document.getElementById('keygateSub').textContent = mode === 'change'
+    ? '새 비밀키를 입력해 주세요'
+    : '이 앱을 연 적이 없는 기기예요. 비밀키를 입력해 주세요.';
+  document.getElementById('keyCancel').hidden = mode !== 'change';
+  input.value = mode === 'change' ? (DIARY_KEY || '') : '';
+  document.getElementById('keyErr').textContent = '';
+  wrap.hidden = false;
+  document.body.classList.add('sheet-open');
+  setTimeout(() => { try { input.focus(); input.select(); } catch (_) {} }, 180);
+}
+
+function closeKeyGate() {
+  const wrap = keyWrapEl();
+  if (wrap) wrap.hidden = true;
+  if (!document.querySelector('.sheet-wrap.open')) document.body.classList.remove('sheet-open');
+}
+
+/* Worker 가 401 을 돌려줬을 때 */
+function onDiaryLocked() {
+  S.locked = true;
+  S.source = 'locked';
+  S.banner = null;
+  const wrap = keyWrapEl();
+  if (!wrap || wrap.hidden) openKeyGate('open');
+  else if (keyGateMode !== 'change') document.getElementById('keyErr').textContent = '비밀키가 맞지 않아요';
+}
+
+function connLabel() {
+  if (S.locked) return '비밀키 필요';
+  if (S.source === 'notion') return '연결됨';
+  if (S.source === 'cache') return '이 기기 기록만';
+  if (S.source === 'demo') return '예시 기록';
+  if (S.source === 'loading') return '확인 중';
+  return S.banner === 'offline' ? '연결 안 됨' : '연결됨';
+}
+
+document.getElementById('keyForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const mode = keyGateMode;
+  const input = document.getElementById('keyInput');
+  const err = document.getElementById('keyErr');
+  const btn = document.getElementById('keyGo');
+  const val = input.value.trim();
+  if (!val) { err.textContent = '비밀키를 입력해 주세요'; return; }
+  if (btn.disabled) return;
+  const prev = DIARY_KEY;
+  setDiaryKey(val);
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = '확인 중…';
+  try {
+    await api.meta();          // 키가 맞는지 확인하면서 목록도 받아 온다
+    closeKeyGate();
+    toast(mode === 'change' ? '비밀키를 바꿨어요' : '열렸어요');
+    await loadFromServer();
+  } catch (e) {
+    if (e.status === 401) {
+      setDiaryKey(prev);
+      S.locked = true;
+      err.textContent = '비밀키가 맞지 않아요';
+      input.select();
+    } else {
+      // 서버에 닿지 못한 경우 — 키는 저장하고 이 기기 기록으로 계속
+      closeKeyGate();
+      S.locked = false;
+      S.banner = S.entries.length ? 'offline' : 'nodata';
+      if (!S.entries.length && !S.meta.length) await loadDemo();
+      S.loaded = true;
+      renderAll();
+      toast('키를 저장했어요 · 연결되면 노션에서 불러올게요');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '열기';
+  }
+});
+
+document.getElementById('keyCancel').addEventListener('click', closeKeyGate);
+
+/* ---------- 설정 ---------- */
+document.getElementById('goSettings').addEventListener('click', () => {
+  document.getElementById('setConnVal').textContent = connLabel();
+  document.getElementById('setKeyVal').textContent = DIARY_KEY ? String(DIARY_KEY).slice(0, 6) + '…' : '없음';
+  openSheet(document.getElementById('sheet-settings'));
+});
+document.getElementById('setKey').addEventListener('click', () => {
+  closeSheet(document.getElementById('sheet-settings'));
+  setTimeout(() => openKeyGate('change'), 200);
+});
+document.getElementById('setLogout').addEventListener('click', async () => {
+  closeSheet(document.getElementById('sheet-settings'));
+  setDiaryKey('');
+  S.entries = [];
+  S.meta = [];
+  S.source = 'locked';
+  S.locked = true;
+  S.banner = null;
+  try {
+    await Store.set('entries', { at: Date.now(), items: [] });
+    await Store.set('meta', []);
+  } catch (_) {}
+  renderAll();
+  setTimeout(() => openKeyGate('missing'), 220);
+  toast('이 기기에서 잠갔어요');
+});
+
 /* ---------- 시작 ---------- */
 initLock();
 renderAll();
@@ -1580,7 +1814,7 @@ boot().then(() => { S.loaded = true; S.lastRefresh = Date.now(); renderAll(); })
 
 /* 앱으로 돌아오면 가볍게 새로고침 */
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && S.loaded) {
+  if (document.visibilityState === 'visible' && S.loaded && !S.locked) {
     const gap = Date.now() - (S.lastRefresh || 0);
     if (gap > 60000) { S.lastRefresh = Date.now(); refresh({ quiet: true }).then(() => renderAll()); }
   }
