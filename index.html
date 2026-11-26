@@ -36,7 +36,7 @@
   #app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
 
   /* ---------- 헤더 ---------- */
-  .head{flex:none;display:flex;align-items:flex-end;justify-content:space-between;
+  .head{flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
     padding:calc(env(safe-area-inset-top) + 18px) 18px 10px;background:var(--bg)}
   .eyebrow{font-size:11.5px;color:#8A8F99;letter-spacing:.01em;margin-bottom:4px}
   .head h1{font-size:23px;font-weight:700;letter-spacing:-.035em;line-height:1.15}
@@ -46,6 +46,19 @@
     transition:transform .12s ease, background .15s ease}
   .ibtn:active{transform:scale(.93)}
   .ibtn.on{background:var(--ink);color:#fff}
+  /* 누구 일기인가 — 은호 일기로 바꾸는 작은 알약 버튼 */
+  .who{display:flex;align-items:center;gap:5px;height:34px;padding:0 11px 0 4px;border-radius:999px;
+    background:#fff;color:var(--ink2);font-size:12.5px;font-weight:700;letter-spacing:-.02em;
+    box-shadow:0 1px 3px rgba(24,28,36,.07);
+    transition:transform .12s ease, background .15s ease, color .15s ease, box-shadow .15s ease}
+  .who:active{transform:scale(.95)}
+  .who .av{width:26px;height:26px;border-radius:50%;background:#FBEFDD;flex:none;
+    display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .who.on{background:var(--ink);color:#fff;box-shadow:0 4px 12px rgba(27,28,32,.22)}
+  .who.on .av{background:#fff}
+  .head h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .head .htitle{min-width:0;flex:1 1 auto;overflow:hidden}
+  .acts{flex:none}
 
   /* ---------- 연결 안내 배너 ---------- */
   .banner{flex:none;display:flex;align-items:center;gap:10px;margin:0 18px 8px;
@@ -132,6 +145,8 @@
     display:flex;align-items:center;justify-content:center}
   .nudge .t1{display:block;font-size:12.5px;font-weight:600;color:#5A606A;letter-spacing:-.01em}
   .nudge .t2{display:block;font-size:11px;color:var(--mute);margin-top:3px}
+  .nudge.ro{border-style:solid;border-color:var(--line);background:#fff;cursor:default;
+    box-shadow:0 1px 3px rgba(24,28,36,.04)}
   .listfoot{text-align:center;font-size:10.5px;color:#B7BCC5;padding:14px 0 4px;letter-spacing:.02em}
 
   /* ---------- 빈 상태 / 로딩 ---------- */
@@ -205,8 +220,17 @@
   .fab:active{transform:scale(.92)}
 
   /* 작은 화면(아이폰 SE 등) */
+  @media (max-width:380px){
+    .head h1{font-size:20px}
+    .acts{gap:6px}
+    .who{padding:0 8px 0 3px;font-size:12px}
+  }
   @media (max-width:355px){
-    .head h1{font-size:21px}
+    .head h1{font-size:19px}
+    .acts{gap:6px}
+    /* 아주 좁은 화면에서는 은호 버튼을 얼굴 아이콘만 남긴다 */
+    .who{padding:0 4px}
+    .who .wl{display:none}
     .card{padding:14px}
     .thumb{width:76px;height:76px;border-radius:12px}
     .day{max-width:40px}
@@ -344,11 +368,23 @@
 
 <div id="app">
   <header class="head">
-    <div>
+    <div class="htitle">
       <div class="eyebrow" id="eyebrow">—</div>
-      <h1>세줄일기</h1>
+      <h1 id="h1">세줄일기</h1>
     </div>
     <div class="acts">
+      <button class="who" id="whoBtn" aria-pressed="false" aria-label="은호 세줄일기 보기">
+        <span class="av">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="13.2" r="8.2" fill="#FBDFBE"/>
+            <path d="M3.9 11.6c.1-4.3 3.6-7.6 8.1-7.6s8 3.3 8.1 7.6c-1-2.2-2.4-3.4-4-3.4-1.2 0-2 .5-2.6 1.2-.5.6-1.5.6-2 0-.6-.7-1.4-1.2-2.6-1.2-1.6 0-3 1.2-4 3.4z" fill="#6B4B33"/>
+            <circle cx="9.5" cy="13.6" r="1" fill="#5B412C"/>
+            <circle cx="14.5" cy="13.6" r="1" fill="#5B412C"/>
+            <path d="M10.3 16.4c.5.55 1.05.82 1.7.82s1.2-.27 1.7-.82" stroke="#B4703F" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="wl">은호</span>
+      </button>
       <button class="ibtn" id="goSettings" aria-label="설정">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h4M14 17h6"/><circle cx="15.4" cy="7" r="2.3"/><circle cx="10" cy="17" r="2.3"/></svg>
       </button>
@@ -624,6 +660,7 @@ const S = {
   entries: [],       // {id,title,date,lines,tags,photos,summary,url,edited,pending,local}
   meta: [],          // {id,title,date,tags,summary,url,edited}
   source: 'loading', // loading | notion | cache | demo | locked
+  who: 'mine',       // mine = 내 일기만 | eunho = 은호 일기만 (2026-11-26)
   locked: false,     // 비밀키가 없거나 틀려 잠긴 상태
   banner: null,      // null | 'offline' | 'nodata'
   err: '',
@@ -666,6 +703,26 @@ function sortEntries(list) {
     if (ae !== be) return ae < be ? 1 : -1;
     return (b.id || '').localeCompare(a.id || '');
   });
+}
+
+/* ---------- 누구 일기인가 (2026-11-26) ----------
+   · 은호 일기: 가족 대시보드가 「📔 세줄일기」에 쓰는 기록 — 제목이 늘 '은호 세줄일기'이고
+     함께 태그가 '은호' 하나다 (Worker /study-journal).
+   · 은비 님 일기: 앱에서 쓴 기록. 함께에 '은호'를 골라도 제목은 본인이 적은 것이라
+     은호 일기로 옮기지 않는다 (제목 기준으로만 가른다).
+   · 제목이 비어 있거나 '제목 없음'인 옛 기록만 함께 태그로 보태 가른다. */
+const EUNHO_TITLE = '은호 세줄일기';
+function isEunhoEntry(e) {
+  const t = String((e && e.title) || '').trim();
+  if (!t) return false;
+  if (t === EUNHO_TITLE || t.indexOf(EUNHO_TITLE) === 0) return true;
+  const tags = (e && e.tags) || [];
+  return (t === '제목 없음') && tags.length > 0 && tags.every(x => x === '은호');
+}
+function inWho(e) { return S.who === 'eunho' ? isEunhoEntry(e) : !isEunhoEntry(e); }
+function isEunhoMode() { return S.who === 'eunho'; }
+function emptySub(fallback) {
+  return isEunhoMode() ? '은호의 세 줄은 태블릿 대시보드에서 남겨요' : fallback;
 }
 
 /* 로컬 일기 병합: 같은 id는 덮어쓰되 아직 노션에 없는(pending) 것은 유지 */
@@ -914,6 +971,7 @@ function monthEntries(month, day) {
   const have = new Set();
   const out = [];
   for (const e of S.entries) {
+    if (!inWho(e)) continue;
     if (monthOf(e.date) !== month) continue;
     if (day && e.date !== day) continue;
     out.push(e);
@@ -921,6 +979,7 @@ function monthEntries(month, day) {
   }
   // 목록에는 있으나 본문을 아직 안 불러온 기록(제목/요약만)
   for (const m of S.meta) {
+    if (!inWho(m)) continue;
     if (monthOf(m.date) !== month) continue;
     if (day && m.date !== day) continue;
     if (have.has(m.id)) continue;
@@ -931,9 +990,10 @@ function monthEntries(month, day) {
 
 function allEntriesForSearch() {
   const ids = new Set(S.entries.map(e => e.id));
-  const out = S.entries.slice();
+  const out = S.entries.filter(inWho);
   for (const m of S.meta) {
     if (ids.has(m.id)) continue;
+    if (!inWho(m)) continue;
     out.push(normalize({ id: m.id, title: m.title, date: m.date, tags: m.tags, summary: m.summary, url: m.url, edited: m.edited }));
   }
   return sortEntries(out);
@@ -941,8 +1001,8 @@ function allEntriesForSearch() {
 
 function allDates() {
   const set = new Set();
-  for (const e of S.entries) set.add(e.date);
-  for (const m of S.meta) set.add(m.date);
+  for (const e of S.entries) if (inWho(e)) set.add(e.date);
+  for (const m of S.meta) if (inWho(m)) set.add(m.date);
   return set;
 }
 
@@ -957,6 +1017,8 @@ function tagCounts() {
 /* ---------- 렌더 ---------- */
 const el = {
   eyebrow: document.getElementById('eyebrow'),
+  h1: document.getElementById('h1'),
+  whoBtn: document.getElementById('whoBtn'),
   main: document.getElementById('main'),
   list: document.getElementById('view-list'),
   cal: document.getElementById('view-calendar'),
@@ -980,11 +1042,20 @@ function renderAll() {
 
 function renderChrome() {
   const m = S.view === 'calendar' ? S.calMonth : S.view === 'search' ? S.month : S.month;
+  const eunho = isEunhoMode();
   el.eyebrow.textContent = S.view === 'search' ? '기록 찾기' : monthLabel(m);
+  el.h1.textContent = eunho ? EUNHO_TITLE : '세줄일기';
+  document.title = eunho ? EUNHO_TITLE : '세줄일기';
+  el.whoBtn.classList.toggle('on', eunho);
+  el.whoBtn.setAttribute('aria-pressed', eunho ? 'true' : 'false');
+  el.whoBtn.setAttribute('aria-label', eunho ? '내 세줄일기로 돌아가기' : '은호 세줄일기 보기');
   el.goSearch.classList.toggle('on', S.view === 'search');
   el.goCalendar.classList.toggle('on', S.view === 'calendar');
   for (const t of el.tabbar.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.go === S.view);
-  el.fab.style.display = 'flex';
+  /* 은호 일기는 태블릿 대시보드에서 쓴다 — 이 앱에서는 모아 보기만 */
+  el.fab.style.display = eunho ? 'none' : 'flex';
+  const qi = document.getElementById('q');
+  if (qi) qi.placeholder = eunho ? '은호 일기에서 찾기' : '제목·내용·태그로 찾기';
 
   const b = S.banner;
   if (!b) { el.banner.hidden = true; }
@@ -1061,6 +1132,13 @@ function cardHTML(e, q) {
 
 function nudgeHTML() {
   const t = todayISO();
+  if (isEunhoMode()) {
+    const todays = monthEntries(monthOf(t), t);
+    return '<div class="nudge ro">'
+      + '<span class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 7.5h15v11h-15z"/><path d="M4.5 7.5L12 13l7.5-5.5"/></svg></span>'
+      + '<span><span class="t1">' + (todays.length ? '오늘 은호의 세 줄은 이미 남아 있어요' : '은호의 세 줄은 태블릿 대시보드에서 남겨요') + '</span>'
+      + '<span class="t2">여기서는 모아 보기만 해요</span></span></div>';
+  }
   const todays = monthEntries(monthOf(t), t);
   const d = parseISO(t);
   const when = (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
@@ -1073,11 +1151,12 @@ function nudgeHTML() {
 }
 
 function emptyHTML(title, sub, withBtn) {
+  const btn = withBtn && !isEunhoMode();
   return '<div class="empty">'
     + '<div class="ei"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 6.5h14M5 12h14M5 17.5h8"/></svg></div>'
     + '<div class="et">' + title + '</div>'
     + '<div class="es">' + sub + '</div>'
-    + (withBtn ? '<button class="eb" data-new="1">일기 쓰기</button>' : '')
+    + (btn ? '<button class="eb" data-new="1">일기 쓰기</button>' : '')
     + '</div>';
 }
 
@@ -1106,7 +1185,7 @@ function renderList() {
     html += '<div class="sect"><span class="t">' + dayLabel(S.day) + '</span>'
       + '<button class="c link" data-clear="1">전체 보기</button></div>';
     if (!inMonth.length) {
-      html += emptyHTML('이 날은 기록이 없어요', dayLabel(S.day) + '의 세 줄을 남겨 볼까요?', true);
+      html += emptyHTML('이 날은 기록이 없어요', emptySub(dayLabel(S.day) + '의 세 줄을 남겨 볼까요?'), true);
     } else {
       html += inMonth.map(e => cardHTML(e, '')).join('');
     }
@@ -1114,7 +1193,7 @@ function renderList() {
   } else {
     if (!allMonth.length) {
       html += '<div class="sect"><span class="t">' + Number(m.slice(5, 7)) + '월</span><span class="c">0편</span></div>';
-      html += emptyHTML(Number(m.slice(5, 7)) + '월에는 아직 기록이 없어요', '오늘의 세 줄을 남겨 보세요', true);
+      html += emptyHTML(Number(m.slice(5, 7)) + '월에는 아직 기록이 없어요', emptySub('오늘의 세 줄을 남겨 보세요'), true);
       html += nudgeHTML();
     } else {
       // 날짜별 묶음
@@ -1181,11 +1260,11 @@ function renderCalendar() {
   const list = monthEntries(m, S.calSel);
   if (S.calSel) {
     html += '<div class="sect"><span class="t">' + dayLabel(S.calSel) + '</span><span class="c">' + list.length + '편</span></div>';
-    html += list.length ? list.map(e => cardHTML(e, '')).join('') : emptyHTML('이 날은 기록이 없어요', dayLabel(S.calSel) + '의 세 줄을 남겨 볼까요?', true);
+    html += list.length ? list.map(e => cardHTML(e, '')).join('') : emptyHTML('이 날은 기록이 없어요', emptySub(dayLabel(S.calSel) + '의 세 줄을 남겨 볼까요?'), true);
   } else {
     html += '<div class="sect"><span class="t">' + (list.length ? Number(m.slice(5, 7)) + '월 기록 ' + list.length + '편' : Number(m.slice(5, 7)) + '월') + '</span>'
       + '<span class="c">' + (list.length ? '날짜를 눌러 보세요' : '0편') + '</span></div>';
-    html += list.length ? list.map(e => cardHTML(e, '')).join('') : emptyHTML(Number(m.slice(5, 7)) + '월에는 아직 기록이 없어요', '그날의 세 줄을 남겨 보세요', true);
+    html += list.length ? list.map(e => cardHTML(e, '')).join('') : emptyHTML(Number(m.slice(5, 7)) + '월에는 아직 기록이 없어요', emptySub('그날의 세 줄을 남겨 보세요'), true);
   }
   el.cal.innerHTML = html;
 }
@@ -1296,6 +1375,8 @@ function detailHTML(e) {
 function renderDetail(e) {
   document.getElementById('dHead').textContent = dayShort(e.date);
   document.getElementById('dBody').innerHTML = detailHTML(e);
+  /* 은호 일기는 대시보드 기록이라 이 앱에서 고치지 않는다 */
+  document.getElementById('dEdit').style.display = isEunhoMode() ? 'none' : '';
 }
 
 function openDetail(id) {
@@ -1312,6 +1393,7 @@ function openDetail(id) {
 document.getElementById('dEdit').addEventListener('click', () => {
   const e = findEntry(detailId);
   if (!e) return;
+  if (isEunhoMode()) { toast('은호 일기는 태블릿 대시보드에서 남겨요'); return; }
   closeSheet(document.getElementById('sheet-detail'));
   setTimeout(() => openWrite(e), 180);
 });
@@ -1555,7 +1637,22 @@ el.tabbar.addEventListener('click', ev => {
 });
 el.goSearch.addEventListener('click', () => setView('search'));
 el.goCalendar.addEventListener('click', () => setView('calendar'));
-el.fab.addEventListener('click', () => openWrite(null));
+el.fab.addEventListener('click', () => { if (!isEunhoMode()) openWrite(null); });
+
+/* 은호 ↔ 내 일기 바꾸기 (2026-11-26) */
+el.whoBtn.addEventListener('click', () => {
+  S.who = isEunhoMode() ? 'mine' : 'eunho';
+  S.day = null;
+  S.calSel = null;
+  S.qTag = null;
+  renderAll();
+  const sheet = document.getElementById('sheet-detail');
+  if (sheet && sheet.classList.contains('open')) {
+    const fresh = detailId ? findEntry(detailId) : null;
+    if (fresh) renderDetail(fresh); else closeSheet(sheet);
+  }
+  toast(isEunhoMode() ? '은호 세줄일기만 모아 봐요' : '내 세줄일기로 돌아왔어요');
+});
 
 /* 위임 클릭 */
 el.main.addEventListener('click', ev => {
@@ -1598,7 +1695,7 @@ el.main.addEventListener('click', ev => {
     return;
   }
   const nw = t.closest('[data-new]');
-  if (nw) { openWrite(null); return; }
+  if (nw) { if (!isEunhoMode()) openWrite(null); return; }
 
   const cm = t.closest('[data-calmonth]');
   if (cm) {
